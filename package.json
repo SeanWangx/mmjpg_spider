@@ -1,0 +1,14 @@
+{
+  "name": "mmjpg_spider",
+  "version": "1.0.0",
+  "description": "A simple spider for mmjpg.com",
+  "scripts": {
+    "dev": "node app.js"
+  },
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "request": "^2.81.0"
+  }
+}
