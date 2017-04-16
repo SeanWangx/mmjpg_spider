@@ -1,11 +1,13 @@
 {
   "name": "mmjpg_spider",
   "version": "1.0.0",
+  "repository": "git@github.com:SeanWangx/mmjpg_spider.git",
   "description": "A simple spider for mmjpg.com",
   "scripts": {
     "dev": "node app.js"
   },
   "main": "index.js",
+  "author": "Sean",
   "license": "MIT",
   "dependencies": {
     "cheerio": "^0.22.0",
