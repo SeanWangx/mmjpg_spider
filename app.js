@@ -17,9 +17,9 @@ function mkdir( path, dirName ) {
     fs.access( path + '/' + dirName, fs.constants.F_OK, ( err ) => {
         if ( err ) {
             fs.mkdir( path + '/' + dirName );
-            console.log( path + '/' + dirName + ' is created!');
+            // console.log( path + '/' + dirName + ' is created!');
         } else {
-            console.log( path + '/' + dirName + ' is existed!');
+            // console.log( path + '/' + dirName + ' is existed!');
         }
     });
 }
@@ -108,6 +108,13 @@ function start() {
         Promise.all( tasks ).then( function() { // 二级路径获取链接
             console.log( '二级页面链接获取成功' );
             console.log( url_query );
+            let length = 0;
+            for(var i = 0; i < url_query.length; i++) {
+                if( url_query[i].indexOf('http://www.mmjpg.com/mm/') != -1 ) {
+                    length = length + 1;
+                }
+            }
+            console.log( 'useful url: ' + length );
         })
     }).catch( function( error ) {
         console.log( error );
