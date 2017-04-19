@@ -1,141 +1,117 @@
-var fs = require('fs');  
-var path = require('path');  
+var fs = require('fs');
 var request = require('request');
 var cheerio = require('cheerio');
 
 const ROOT_URL = 'http://www.mmjpg.com';
+const SAVE_DIR = './mmjpg';
 var url_query = [];
 var done_query = [];
-const mmjpg = './mmjpg/';
 
-function getImageAsync(url) {
-    return new Promise(function(resolve, reject){
-        request({url: url, gzip: true}, (error, response, body) => {
-            if(!error && response.statusCode === 200) {
-                let $ = cheerio.load(body);
-                let src = $('#content > a > img').attr('src');
-                let tmp = src.split('/');
-                let fileName = tmp[tmp.length - 1];
-                //console.log(src);
-                //resolve(src);
-                request.head(src, function(err, res, body) {
-                    request(src).pipe(fs.createWriteStream(mmjpg+fileName));
-                    console.log('图片'+fileName+'下载成功！');
-                    resolve();
-                });
-            }
-            reject(error);
-        });
-    });
-}
-
-let tasks = [];
-const example = 'http://www.mmjpg.com/mm/900/';
-for(var i = 1; i < 37; i++) {
-    tasks.push(getImageAsync(example+i));
-}
-Promise.all(tasks).then(function(){
-    console.log('done!');
-}).catch(function(error) {
-    console.log(error);
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function fetchURL(url) {
-    return new Promise(function(resolve, reject) {
-        request({url: url, gzip: true}, (error, response, body) => {
-            let query = [];
-            if(!error && response.statusCode === 200) {
-                let $ = cheerio.load(body);
-                let $a = $('a');
-                $a.each(function() {
-                    let href = $(this).attr('href')
-                    if(href && href.indexOf(ROOT_URL) != -1 && !contains(query, href)) {
-                        query.push(href);
-                        if(!contains(url_query, href)) {
-                            url_query.push(href);
-                        }
-                    }
-                });
-            }
-            resolve(query);
-        });
-    });
-    /*request({
-        url: url,
-        gzip: true
-    }, function (error, response, body) {
-        if (!error && response.statusCode == 200) {
-            var $ = cheerio.load(body);
-            if(url.indexOf(ROOT_URL+'/mm/') != -1){
-                mkdir('./mmjpg/', $('title').text());
-            }
-            var $a = $('a');
-            $a.each(function(){
-                if($(this).attr('href').indexOf(ROOT_URL) != -1) {
-                    var href = $(this).attr('href');
-                    if(!contains(done_query, href) && !contains(url_query, href)) { // 判断url是否已经被抓取过
-                        url_query.push(href);
-                    }
-                }
-            })
+/**
+ * 工具函数 mkdir
+ * 用于判断文件家是否存在，不存在则创建
+ * @param path 文件夹路径
+ * @param dirName 待创建文件夹名称
+ */
+function mkdir( path, dirName ) {
+    fs.access( path + '/' + dirName, fs.constants.F_OK, ( err ) => {
+        if ( err ) {
+            fs.mkdir( path + '/' + dirName );
+            console.log( path + '/' + dirName + ' is created!');
+        } else {
+            console.log( path + '/' + dirName + ' is existed!');
         }
-        done_query.push(url); // 加入已抓取url数组中
-    });*/
+    });
 }
 
-function contains(array, value) {
-    for(var i = 0; i < array.length; i++) {
-        if(value === array[i]) {
+/**
+ * 工具函数 contains
+ * @param arr 数组
+ * @param val 待判断的值
+ * @returns 包含为true， 不包含为false
+ */
+function contains( arr, val ) {
+    for( var i = 0; i < arr.length; i++ ) {
+        if( val === arr[i] ) {
             return true;
         }
     }
     return false;
 }
 
-function mkdir(path, dirname) {
-    fs.access(path+dirname, fs.constants.F_OK, function(err) {
-        if (err) {
-            // console.log(err);
-            fs.mkdir(path+dirname);
-            // console.log('文件夹 <'+dirname+'> 创建完毕！');
-        } else {
-            // console.log('directory exists!');
-        }
-    })
+/**
+ * 异步获取相册图片
+ * @param ImgUrl 相册图片访问路径
+ * @param savaPath 图片保存地址
+ */
+function getImageAsync( ImgUrl, savePath ) {
+    return new Promise( function( resolve, reject ) {
+        request( { url: ImgUrl, gzip: true }, ( error, response, body ) => {
+            if( !error && response.statusCode === 200 ) {
+                let $ = cheerio.load( body );
+                let src = $( '#content > a > img' ).attr( 'src' );
+                // let tmp = src.split( '/' );
+                // let fileName = tmp.length > 0 ? tmp[tmp.length - 1] : null;
+                let regexp = /\/(\d+\.[a-zA-Z]+)$/g;
+                let tmp = regexp.exec( src );
+                let fileName = tmp.length === 2 ? tmp[1] : null;
+                if( fileName ) {
+                    request.head( src, function( err, res, body ) {
+                        request( src ).pipe( fs.createWriteStream( savePath + '/' + fileName ) );
+                        console.log( '图片'+fileName+'下载成功！' );
+                        resolve();
+                    });
+                }
+            }
+            reject();
+        });
+    });
 }
 
-/*fetchURL(ROOT_URL).then((value) => {
-    console.log(url_query.length);
-    let tasks = [];
-    for(var i = 0; i < value.length; i++) {
-        tasks.push(fetchURL(value[i]));
-    }
-    Promise.all(tasks).then(function() {
-        console.log(url_query.length);
-        console.log(url_query);
+/**
+ * 获取链接地址附属地址函数
+ * @param url 初始路径
+ */
+function fetchURL( url ) {
+    return new Promise( function( resolve, reject ) {
+        request( { url: url, gzip: true }, ( error, response, body ) => {
+            let tmp_query = [];
+            if( !error && response.statusCode === 200 ) {
+                let $ = cheerio.load( body );
+                let $a = $( 'a' );
+                $a.each( function() {
+                    let href = $( this ).attr( 'href' );
+                    if( href && href.indexOf( ROOT_URL ) != -1 && !contains( tmp_query, href ) ) { // 本地队列去重
+                        tmp_query.push( href ); // 添加到本地队列
+                        if( !contains( url_query, href ) ) { // 全局队列去重
+                            url_query.push( href ); // 添加到全局队列
+                        }
+                    }
+                } );
+                resolve( tmp_query );
+            }
+            reject( '获取地址资源错误!' );
+        } );
+    } );
+}
+
+/**
+ * 开始函数
+ */
+function start() {
+    mkdir('.', 'mmjpg');
+    fetchURL( ROOT_URL ).then( function( value ) { // 根路径获取链接
+        let tasks = [];
+        for( var i = 0; i < url_query.length; i++ ) {
+            tasks.push( fetchURL( url_query[i] ) );
+        }
+        Promise.all( tasks ).then( function() { // 二级路径获取链接
+            console.log( '二级页面链接获取成功' );
+            console.log( url_query );
+        })
+    }).catch( function( error ) {
+        console.log( error );
     });
-});*/
+}
+
+start();
