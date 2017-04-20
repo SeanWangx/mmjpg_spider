@@ -4,7 +4,7 @@ var cheerio = require('cheerio');
 
 const ROOT_URL = 'http://www.mmjpg.com';
 const SAVE_DIR = './mmjpg';
-var url_query = [];
+var url_query = [ROOT_URL];
 var done_query = [];
 
 /**
@@ -72,7 +72,7 @@ function getImageAsync( ImgUrl, savePath ) {
  * 获取链接地址附属地址函数
  * @param url 初始路径
  */
-function fetchURL( url ) {
+var fetchURL = function( url ) {
     return new Promise( function( resolve, reject ) {
         request( { url: url, gzip: true }, ( error, response, body ) => {
             let tmp_query = [];
@@ -82,15 +82,15 @@ function fetchURL( url ) {
                 $a.each( function() {
                     let href = $( this ).attr( 'href' );
                     if( href && href.indexOf( ROOT_URL ) != -1 && !contains( tmp_query, href ) ) { // 本地队列去重
-                        tmp_query.push( href ); // 添加到本地队列
                         if( !contains( url_query, href ) ) { // 全局队列去重
+                            tmp_query.push( href ); // 添加到本地队列
                             url_query.push( href ); // 添加到全局队列
                         }
                     }
                 } );
-                resolve( tmp_query );
+                resolve( tmp_query.length );
             }
-            reject( '获取地址资源错误!' );
+            reject( url );
         } );
     } );
 }
@@ -98,9 +98,9 @@ function fetchURL( url ) {
 /**
  * 开始函数
  */
-function start() {
+/*function start() {
     mkdir('.', 'mmjpg');
-    fetchURL( ROOT_URL ).then( function( value ) { // 根路径获取链接
+    fetchURL( url_query[0] ).then( function( value ) { // 根路径获取链接
         let tasks = [];
         for( var i = 0; i < url_query.length; i++ ) {
             tasks.push( fetchURL( url_query[i] ) );
@@ -120,16 +120,45 @@ function start() {
     });
 }
 
-start();
+start();*/
 
+var d = new Promise( ( resolve, reject ) => {
+    resolve();
+} );
 
+let circle = 0;
 
+var step = function( def ) {
+    def.then( function() {
+        return fetchURL( url_query[circle] );
+    } ).then( function( value ) {
+        circle = circle + 1;
+        if( circle % 100 === 0 ) {
+            console.log( circle );
+        }
+        if(circle != url_query.length) {
+            step(def);
+        } else {
+            console.log(url_query.length);
+        }
+    }).catch( function( error ) {
+        console.log( error );
+        circle = circle + 1;
+        if( circle % 100 === 0 ) {
+            console.log( circle );
+        }
+        if( circle != url_query.length ) {
+            url_query.splice(circle - 1, 1);
+            circle = circle + 1;
+            step( def );
+        }
+    });
 
+};
 
+step(d);
 
-
-
-function red() {
+/*function red() {
     console.log('red');
 }
 
@@ -172,4 +201,4 @@ var step = function( def ) {
 
 };
 
-// step(d);
+step(d);*/
