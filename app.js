@@ -127,15 +127,13 @@ function start() {
                 console.log( circle );
             }
             if( circle != url_query.length ) {
-                url_query.splice(circle - 1, 1);
-                circle = circle + 1;
                 step( def );
             }
         });
 
     };
 
-    // step(d);
+    step(d);
 
 }
 
