@@ -98,65 +98,48 @@ var fetchURL = function( url ) {
 /**
  * 开始函数
  */
-/*function start() {
+function start() {
     mkdir('.', 'mmjpg');
-    fetchURL( url_query[0] ).then( function( value ) { // 根路径获取链接
-        let tasks = [];
-        for( var i = 0; i < url_query.length; i++ ) {
-            tasks.push( fetchURL( url_query[i] ) );
-        }
-        Promise.all( tasks ).then( function() { // 二级路径获取链接
-            let length = 0;
-            for(var i = 0; i < url_query.length; i++) {
-                if( url_query[i].indexOf('http://www.mmjpg.com/mm/') != -1 ) {
-                    length = length + 1;
-                }
+    
+    var d = new Promise( ( resolve, reject ) => {
+        resolve();
+    } );
+
+    let circle = 0;
+
+    var step = function( def ) {
+        def.then( function() {
+            return fetchURL( url_query[circle] );
+        } ).then( function( value ) {
+            circle = circle + 1;
+            if( circle % 100 === 0 ) {
+                console.log( circle );
             }
-	        console.log( 'total url: ' + url_query.length );
-            console.log( 'useful url: ' + length );
-        })
-    }).catch( function( error ) {
-        console.log( error );
-    });
+            if(circle != url_query.length) {
+                step(def);
+            } else {
+                console.log(url_query.length);
+            }
+        }).catch( function( error ) {
+            console.log( error );
+            circle = circle + 1;
+            if( circle % 100 === 0 ) {
+                console.log( circle );
+            }
+            if( circle != url_query.length ) {
+                url_query.splice(circle - 1, 1);
+                circle = circle + 1;
+                step( def );
+            }
+        });
+
+    };
+
+    // step(d);
+
 }
 
-start();*/
-
-var d = new Promise( ( resolve, reject ) => {
-    resolve();
-} );
-
-let circle = 0;
-
-var step = function( def ) {
-    def.then( function() {
-        return fetchURL( url_query[circle] );
-    } ).then( function( value ) {
-        circle = circle + 1;
-        if( circle % 100 === 0 ) {
-            console.log( circle );
-        }
-        if(circle != url_query.length) {
-            step(def);
-        } else {
-            console.log(url_query.length);
-        }
-    }).catch( function( error ) {
-        console.log( error );
-        circle = circle + 1;
-        if( circle % 100 === 0 ) {
-            console.log( circle );
-        }
-        if( circle != url_query.length ) {
-            url_query.splice(circle - 1, 1);
-            circle = circle + 1;
-            step( def );
-        }
-    });
-
-};
-
-step(d);
+start();
 
 /*function red() {
     console.log('red');
