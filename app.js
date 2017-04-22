@@ -137,49 +137,27 @@ function start() {
 
 }
 
-start();
+// start();
 
-/*function red() {
-    console.log('red');
+function resolveAfter2Seconds(x) {
+    return new Promise(resolve => {
+        setTimeout(() => {
+            resolve(x);
+        }, 2000);
+    });
 }
 
-function green() {
-    console.log('green');
+async function add1(x) {
+    var a = resolveAfter2Seconds(20);
+    var b = resolveAfter2Seconds(30);
+    return x + await a + await b;
 }
 
-function yellow() {
-    console.log('yellow');
-}
+add1(10).then(v => {
+    console.log(v);  // prints 60 after 2 seconds.
+});
 
-var tic = function( time, cb ) {
-    return new Promise( ( resolve, reject ) => {
-        setTimeout( function() {
-	    cb();
-	    resolve();
-	}, time );
-    } );
-};
 
 var d = new Promise( ( resolve, reject ) => {
     resolve();
 } );
-
-let circle = 0;
-
-var step = function( def ) {
-    def.then( function() {
-        return tic( 1000, red );
-    } ).then( function() {
-        return tic( 1000, green );
-    } ).then( function() {
-        return tic( 1000, yellow )
-    }).then( function() {
-        circle = circle + 1;
-	if( circle < 2 ) {
-	    step(def);
-	}
-    });
-
-};
-
-step(d);*/
