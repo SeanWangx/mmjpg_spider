@@ -3,9 +3,9 @@ var request = require('request');
 var cheerio = require('cheerio');
 
 const ROOT_URL = 'http://www.mmjpg.com';
-const SAVE_DIR = './mmjpg';
-var url_query = [ROOT_URL];
-var done_query = [];
+const SAVE_PATH = './mmjpg';
+var search_queue = [ROOT_URL];
+var image_queue = [];
 
 /**
  * 工具函数 mkdir
@@ -17,9 +17,6 @@ function mkdir( path, dirName ) {
     fs.access( path + '/' + dirName, fs.constants.F_OK, ( err ) => {
         if ( err ) {
             fs.mkdir( path + '/' + dirName );
-            // console.log( path + '/' + dirName + ' is created!');
-        } else {
-            // console.log( path + '/' + dirName + ' is existed!');
         }
     });
 }
@@ -40,30 +37,98 @@ function contains( arr, val ) {
 }
 
 /**
+ * 工具函数 站内链接判断
+ * @author SeanWangx
+ * @param url
+ */
+function checkRangeIn(url) {
+    let regexp = /http:\/\/www.mmjpg.com.?/;
+    return regexp.test( url );
+}
+
+/**
+ * 工具函数 站内相册链接判断
+ * @author SeanWangx
+ * @param url
+ */
+function checkAlbumUrl( url ) {
+    let regexp = /http:\/\/www.mmjpg.com\/mm\/\d+$/;
+    return regexp.test( url );
+}
+
+/**
  * 异步获取相册图片
- * @param ImgUrl 相册图片访问路径
+ * @param imageUrl 相册图片访问路径
  * @param savaPath 图片保存地址
  */
-function getImageAsync( ImgUrl, savePath ) {
+function saveImageAsync( imageUrl, savePath ) {
     return new Promise( function( resolve, reject ) {
-        request( { url: ImgUrl, gzip: true }, ( error, response, body ) => {
+        request( { url: imageUrl, gzip: true }, ( error, response, body ) => {
             if( !error && response.statusCode === 200 ) {
                 let $ = cheerio.load( body );
                 let src = $( '#content > a > img' ).attr( 'src' );
-                // let tmp = src.split( '/' );
-                // let fileName = tmp.length > 0 ? tmp[tmp.length - 1] : null;
                 let regexp = /\/(\d+\.[a-zA-Z]+)$/g;
                 let tmp = regexp.exec( src );
-                let fileName = tmp.length === 2 ? tmp[1] : null;
-                if( fileName ) {
+                let imageName = tmp.length === 2 ? tmp[1] : null;
+                if( imageName ) {
                     request.head( src, function( err, res, body ) {
-                        request( src ).pipe( fs.createWriteStream( savePath + '/' + fileName ) );
-                        console.log( '图片'+fileName+'下载成功！' );
+                        request( src ).pipe( fs.createWriteStream( savePath + '/' + imageName ) );
                         resolve();
                     });
+                } else {
+                    reject( 'Get image name failed ... ' + imageUrl );
                 }
+            } else {
+                reject( 'Request from image url failed ... ' + imageUrl );
             }
-            reject();
+        });
+    });
+}
+
+/**
+ * 保存相册照片，异步处理
+ */
+async function getImageUrlAsync( dirName, page, albumUrl ) {
+    mkdir( SAVE_PATH, dirName );
+    try {
+        for( var i = 1; i <= page; i++ ) {
+            await saveImageAsync( albumUrl + '/' + i, SAVE_PATH + '/' + dirName );
+        }
+    } catch ( error ) {
+        console.log( error );
+    }
+}
+
+/**
+ * 根据相册首页获取相册信息：相册名称、图片数量、首页链接
+ * @author SeanWangx
+ * @param albumUrl 相册首页链接
+ * @returns  {
+                'name': albumName,
+                'page': page,
+                'url': albumUrl
+            }
+ */
+function getAlbumInfo( albumUrl ) {
+    return new Promise( (resolve, reject ) => {
+        request( { url: albumUrl, gzip: true }, ( error, response, body ) => {
+            if( !error && response.statusCode === 200 ) {
+                let $ = cheerio.load( body );
+                let albumName = $( 'div.article > h2' ).text();
+                let page = parseInt($( '#opic' ).prev().text());
+                if( null != page && null != albumName ) {
+                    let info = {
+                        'name': albumName,
+                        'page': page,
+                        'url': albumUrl
+                    }
+                    resolve( info );
+                } else {
+                    reject( 'Get album infomation failed ... ' + albumUrl );
+                }
+            } else {
+                reject( 'Request from album url failed ... ' + albumUrl );
+            }
         });
     });
 }
@@ -82,9 +147,9 @@ var fetchURL = function( url ) {
                 $a.each( function() {
                     let href = $( this ).attr( 'href' );
                     if( href && href.indexOf( ROOT_URL ) != -1 && !contains( tmp_query, href ) ) { // 本地队列去重
-                        if( !contains( url_query, href ) ) { // 全局队列去重
+                        if( !contains( search_queue, href ) ) { // 全局队列去重
                             tmp_query.push( href ); // 添加到本地队列
-                            url_query.push( href ); // 添加到全局队列
+                            search_queue.push( href ); // 添加到全局队列
                         }
                     }
                 } );
@@ -109,16 +174,16 @@ function start() {
 
     var step = function( def ) {
         def.then( function() {
-            return fetchURL( url_query[circle] );
+            return fetchURL( search_queue[circle] );
         } ).then( function( value ) {
             circle = circle + 1;
             if( circle % 100 === 0 ) {
                 console.log( circle );
             }
-            if(circle != url_query.length) {
+            if(circle != search_queue.length) {
                 step(def);
             } else {
-                console.log(url_query.length);
+                console.log(search_queue.length);
             }
         }).catch( function( error ) {
             console.log( error );
@@ -126,7 +191,7 @@ function start() {
             if( circle % 100 === 0 ) {
                 console.log( circle );
             }
-            if( circle != url_query.length ) {
+            if( circle != search_queue.length ) {
                 step( def );
             }
         });
@@ -139,25 +204,12 @@ function start() {
 
 // start();
 
-function resolveAfter2Seconds(x) {
-    return new Promise(resolve => {
-        setTimeout(() => {
-            resolve(x);
-        }, 2000);
-    });
-}
-
-async function add1(x) {
-    var a = resolveAfter2Seconds(20);
-    var b = resolveAfter2Seconds(30);
-    return x + await a + await b;
-}
-
-add1(10).then(v => {
-    console.log(v);  // prints 60 after 2 seconds.
+getAlbumInfo( 'http://www.mmjpg.com/mm/260' ).then( value => {
+    getImageUrlAsync( value.name, value.page, value.url ).then( () => {
+        console.log( 'Done ...' );
+    } ).catch( error => {
+        console.log( error );
+    } );
+}).catch( error => {
+    console.log( error );
 });
-
-
-var d = new Promise( ( resolve, reject ) => {
-    resolve();
-} );
