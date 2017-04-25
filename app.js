@@ -4,7 +4,7 @@ var cheerio = require('cheerio');
 
 const ROOT_URL = 'http://www.mmjpg.com';
 const SAVE_PATH = './mmjpg';
-var search_queue = [ROOT_URL];
+var search_queue = [ ROOT_URL ];
 var image_queue = [];
 
 /**
@@ -41,7 +41,7 @@ function contains( arr, val ) {
  * @author SeanWangx
  * @param url
  */
-function checkRangeIn(url) {
+function checkRangeIn( url ) {
     let regexp = /http:\/\/www.mmjpg.com.?/;
     return regexp.test( url );
 }
@@ -72,8 +72,9 @@ function saveImageAsync( imageUrl, savePath ) {
                 let imageName = tmp.length === 2 ? tmp[1] : null;
                 if( imageName ) {
                     request.head( src, function( err, res, body ) {
-                        request( src ).pipe( fs.createWriteStream( savePath + '/' + imageName ) );
-                        resolve();
+                        request( src ).pipe( fs.createWriteStream( savePath + '/' + imageName ).on( 'close', function() {
+                            resolve();
+                        }) );
                     });
                 } else {
                     reject( 'Get image name failed ... ' + imageUrl );
@@ -137,25 +138,31 @@ function getAlbumInfo( albumUrl ) {
  * 获取链接地址附属地址函数
  * @param url 初始路径
  */
-var fetchURL = function( url ) {
+function fetchURL( url ) {
     return new Promise( function( resolve, reject ) {
         request( { url: url, gzip: true }, ( error, response, body ) => {
-            let tmp_query = [];
+            let tmp_queue = [];
             if( !error && response.statusCode === 200 ) {
                 let $ = cheerio.load( body );
                 let $a = $( 'a' );
                 $a.each( function() {
                     let href = $( this ).attr( 'href' );
-                    if( href && href.indexOf( ROOT_URL ) != -1 && !contains( tmp_query, href ) ) { // 本地队列去重
-                        if( !contains( search_queue, href ) ) { // 全局队列去重
-                            tmp_query.push( href ); // 添加到本地队列
-                            search_queue.push( href ); // 添加到全局队列
+                    if( href && checkRangeIn( url ) ) { // 属于站内链接
+                        if( !contains( tmp_queue, href ) ) { // 临时去重
+                            if( !contains( search_queue, href ) ) { // 搜索去重
+                                tmp_queue.push( href ); // 添加到本地队列
+                                search_queue.push( href ); // 添加到全局队列
+                                if( checkAlbumUrl( href ) && !contains( image_queue, href ) ) {
+                                    image_queue.push( href );
+                                }
+                            }
                         }
                     }
                 } );
-                resolve( tmp_query.length );
+                resolve( tmp_queue.length );
+            } else {
+                reject( url );
             }
-            reject( url );
         } );
     } );
 }
@@ -165,7 +172,6 @@ var fetchURL = function( url ) {
  */
 function start() {
     mkdir('.', 'mmjpg');
-    
     var d = new Promise( ( resolve, reject ) => {
         resolve();
     } );
@@ -177,20 +183,27 @@ function start() {
             return fetchURL( search_queue[circle] );
         } ).then( function( value ) {
             circle = circle + 1;
-            if( circle % 100 === 0 ) {
-                console.log( circle );
-            }
             if(circle != search_queue.length) {
-                step(def);
+                if( circle < 20 ) {
+                    step(def);
+                } else {
+                    console.log( image_queue );
+                    getAlbumInfo( image_queue[0] ).then( value => {
+                        getImageUrlAsync( value.name, value.page, value.url ).then( () => {
+                            console.log( 'Completed ...' );
+                        } ).catch( error => {
+                            console.log( error );
+                        } );
+                    }).catch( error => {
+                        console.log( error );
+                    });
+                }
             } else {
                 console.log(search_queue.length);
             }
         }).catch( function( error ) {
             console.log( error );
             circle = circle + 1;
-            if( circle % 100 === 0 ) {
-                console.log( circle );
-            }
             if( circle != search_queue.length ) {
                 step( def );
             }
@@ -202,14 +215,4 @@ function start() {
 
 }
 
-// start();
-
-getAlbumInfo( 'http://www.mmjpg.com/mm/260' ).then( value => {
-    getImageUrlAsync( value.name, value.page, value.url ).then( () => {
-        console.log( 'Done ...' );
-    } ).catch( error => {
-        console.log( error );
-    } );
-}).catch( error => {
-    console.log( error );
-});
+start();
