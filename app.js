@@ -4,8 +4,9 @@ var cheerio = require('cheerio');
 
 const ROOT_URL = 'http://www.mmjpg.com';
 const SAVE_PATH = './mmjpg';
-var search_queue = [ ROOT_URL ];
-var image_queue = [];
+let search_queue = [ ROOT_URL ];
+let image_queue = [];
+let picNum = 0;
 
 /**
  * 工具函数 mkdir
@@ -73,6 +74,7 @@ function saveImageAsync( imageUrl, savePath ) {
                 if( imageName ) {
                     request.head( src, function( err, res, body ) {
                         request( src ).pipe( fs.createWriteStream( savePath + '/' + imageName ).on( 'close', function() {
+                            picNum = picNum + 1;
                             resolve();
                         }) );
                     });
@@ -178,25 +180,18 @@ function start() {
 
     let circle = 0;
 
-    var step = function( def ) {
+    function stepFirst( def ) {
         def.then( function() {
             return fetchURL( search_queue[circle] );
         } ).then( function( value ) {
             circle = circle + 1;
             if(circle != search_queue.length) {
-                if( circle < 20 ) {
-                    step(def);
+                if( circle < 100 ) {
+                    stepFirst(def);
                 } else {
-                    console.log( image_queue );
-                    getAlbumInfo( image_queue[0] ).then( value => {
-                        getImageUrlAsync( value.name, value.page, value.url ).then( () => {
-                            console.log( 'Completed ...' );
-                        } ).catch( error => {
-                            console.log( error );
-                        } );
-                    }).catch( error => {
-                        console.log( error );
-                    });
+                    console.log( 'image queue: ' + image_queue.length );
+                    circle = 0;
+                    stepSecond( d );
                 }
             } else {
                 console.log(search_queue.length);
@@ -205,13 +200,34 @@ function start() {
             console.log( error );
             circle = circle + 1;
             if( circle != search_queue.length ) {
-                step( def );
+                stepFirst( def );
             }
         });
-
     };
 
-    step(d);
+    function stepSecond( def ) {
+        def.then( function() {
+            return getAlbumInfo( image_queue[ circle ] );
+        }).then( value => {
+            console.log( value.name);
+            return getImageUrlAsync( value.name, value.page, value.url );
+        }).then( () => {
+            circle = circle + 1;
+            if( circle != image_queue.length ) {
+                stepSecond( def );
+            } else {
+                console.log( 'Completed ... ' + picNum );
+            }
+        }).catch( error => {
+            console.log( error );
+            circle = circle + 1;
+            if( circle != image_queue.length ) {
+                stepSecond( def );
+            }
+        });
+    }
+
+    stepFirst( d );
 
 }
 
