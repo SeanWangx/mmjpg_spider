@@ -163,7 +163,7 @@ function fetchURL( url ) {
                 } );
                 resolve( tmp_queue.length );
             } else {
-                reject( url );
+                reject( 'error url:' + url );
             }
         } );
     } );
@@ -213,7 +213,7 @@ function start() {
             return getImageUrlAsync( value.name, value.page, value.url );
         }).then( () => {
             circle = circle + 1;
-            if( circle != image_queue.length ) {
+            if( circle != image_queue.length) {
                 stepSecond( def );
             } else {
                 console.log( 'Completed ... ' + picNum );
