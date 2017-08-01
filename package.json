@@ -4,17 +4,22 @@
   "repository": "git@github.com:SeanWangx/mmjpg_spider.git",
   "description": "A simple spider for mmjpg.com",
   "scripts": {
-    "dev": "node start.js"
+    "dev": "node index.js"
   },
   "main": "index.js",
   "author": "Sean",
   "license": "MIT",
   "dependencies": {
-    "babel-core": "^6.24.1",
-    "babel-polyfill": "^6.23.0",
-    "babel-preset-es2015-node6": "^0.4.0",
+    "async": "^2.5.0",
+    "babel-core": "^6.25.0",
+    "babel-preset-es2015": "^6.24.1",
     "babel-preset-stage-3": "^6.24.1",
+    "babel-runtime": "^6.18.0",
     "cheerio": "^0.22.0",
+    "iconv-lite": "^0.4.18",
     "request": "^2.81.0"
+  },
+  "devDependencies": {
+    "babel-plugin-transform-runtime": "^6.15.0"
   }
 }
